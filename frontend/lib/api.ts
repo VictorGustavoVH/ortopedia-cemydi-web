@@ -11,7 +11,7 @@
 // 
 // IMPORTANTE: Las variables NEXT_PUBLIC_* se reemplazan en tiempo de BUILD
 // Si no está configurada en Netlify durante el build, será undefined
-const envUrl = process.env.NEXT_PUBLIC_API_URL;
+const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const getApiUrl = () => {
   // Si hay variable de entorno configurada, usarla
@@ -58,9 +58,9 @@ export const API_URL = getApiUrl();
 export const cleanApiUrl = API_URL.replace(/\/$/, "");
 export const API_URL_FINAL = cleanApiUrl;
 
-// Log siempre visible de la URL que se está usando
-if (typeof window !== "undefined") {
-  console.log("🔗 API URL configurada:", API_URL_FINAL);
+// Log de la URL que se está usando (solo en desarrollo para evitar exponer detalles en producción)
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  console.log("🔗 API URL configurada:");
   if (API_URL_FINAL.includes("API_URL_NO_CONFIGURADA")) {
     console.error("❌ CRÍTICO: La variable NEXT_PUBLIC_API_URL no está configurada correctamente en Netlify.");
   }

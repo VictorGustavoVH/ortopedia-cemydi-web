@@ -14,6 +14,8 @@ import * as bcrypt from 'bcrypt';
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
   private readonly CODE_EXPIRATION_MINUTES = 10;
+  private readonly MAX_ATTEMPTS_PER_HOUR = 3;
+  private readonly RATE_LIMIT_WINDOW_HOURS = 1;
 
   constructor(
     private prisma: PrismaService,
@@ -31,6 +33,7 @@ export class PasswordResetService {
   /**
    * Solicita un código de recuperación de contraseña
    * Si ya existe un código para ese email, lo reemplaza
+   * Implementa rate limiting: máximo 3 intentos por hora por email
    */
   async requestPasswordReset(email: string): Promise<void> {
     // Verificar que el usuario existe
@@ -41,6 +44,45 @@ export class PasswordResetService {
       return;
     }
 
+    // Verificar rate limiting: contar intentos en la última hora
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - this.RATE_LIMIT_WINDOW_HOURS);
+
+    const existingReset = await this.prisma.passwordReset.findUnique({
+      where: { email },
+    });
+
+    // Si existe un registro y el último intento fue hace menos de una hora
+    if (existingReset && existingReset.lastAttemptAt > oneHourAgo) {
+      // Verificar si se ha excedido el límite de intentos
+      if (existingReset.attempts >= this.MAX_ATTEMPTS_PER_HOUR) {
+        const minutesRemaining = Math.ceil(
+          (existingReset.lastAttemptAt.getTime() + 60 * 60 * 1000 - Date.now()) / (60 * 1000),
+        );
+        throw new BadRequestException(
+          `Has alcanzado el límite de ${this.MAX_ATTEMPTS_PER_HOUR} solicitudes por hora. Por favor, intenta nuevamente en ${minutesRemaining} minutos.`,
+        );
+      }
+
+      // Incrementar contador de intentos
+      await this.prisma.passwordReset.update({
+        where: { email },
+        data: {
+          attempts: existingReset.attempts + 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+    } else if (existingReset) {
+      // Si el último intento fue hace más de una hora, resetear contador
+      await this.prisma.passwordReset.update({
+        where: { email },
+        data: {
+          attempts: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+    }
+
     // Generar código OTP de 6 dígitos
     const code = this.generateOTP();
 
@@ -48,11 +90,7 @@ export class PasswordResetService {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + this.CODE_EXPIRATION_MINUTES);
 
-    // Buscar si ya existe un código para este email
-    const existingReset = await this.prisma.passwordReset.findUnique({
-      where: { email },
-    });
-
+    // Actualizar o crear el código de recuperación
     if (existingReset) {
       // Actualizar el código existente
       await this.prisma.passwordReset.update({
@@ -69,6 +107,8 @@ export class PasswordResetService {
           email,
           code,
           expiresAt,
+          attempts: 1,
+          lastAttemptAt: new Date(),
         },
       });
     }
@@ -157,6 +197,14 @@ export class PasswordResetService {
     if (newPassword.length < 8) {
       throw new BadRequestException(
         'La contraseña debe tener al menos 8 caracteres',
+      );
+    }
+
+    // Validar complejidad de la contraseña (mayúscula, minúscula, número, símbolo)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new BadRequestException(
+        'La contraseña debe contener al menos una letra mayúscula, una minúscula, un número y un carácter especial (@$!%*?&#)',
       );
     }
 

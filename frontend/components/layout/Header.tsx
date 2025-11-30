@@ -40,8 +40,8 @@ export default function Header() {
     };
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setIsLoggedIn(false);
     setIsMobileMenuOpen(false);
   };

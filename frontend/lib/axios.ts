@@ -18,9 +18,9 @@ const apiClient = axios.create({
   timeout: 30000, // 30 segundos
 });
 
-// Log de la URL configurada (siempre visible para debugging)
-if (typeof window !== "undefined") {
-  console.log("🔗 API URL configurada:", API_URL_FINAL);
+// Log de la URL configurada (solo en desarrollo para debugging)
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  console.log("🔗 API URL configurada correctamente");
   if (API_URL_FINAL.includes("localhost") && window.location.hostname !== "localhost") {
     console.error("❌ PROBLEMA DETECTADO: Estás usando localhost:4000 en producción!");
     console.error("💡 Solución: Configura NEXT_PUBLIC_API_URL en Netlify Environment Variables");
@@ -53,8 +53,8 @@ apiClient.interceptors.response.use(
       }
     }
     
-    // Log detallado de errores (siempre visible para debugging)
-    if (typeof window !== "undefined") {
+    // Log detallado de errores solo en desarrollo (para evitar exponer detalles en producción)
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
       if (error.code === "ERR_BLOCKED_BY_CLIENT" || error.message?.includes("blocked")) {
         console.error("⚠️ Error: Petición bloqueada. Puede ser por una extensión del navegador (bloqueador de anuncios).");
         console.error("💡 Solución: Desactiva temporalmente las extensiones del navegador.");

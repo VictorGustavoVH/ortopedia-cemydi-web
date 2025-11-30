@@ -110,10 +110,24 @@ export const isClient = (): boolean => {
 };
 
 /**
- * Cierra sesión: elimina el token y el rol, luego redirige al login
+ * Cierra sesión: revoca el token en el servidor, elimina el token local y redirige al login
  */
-export const logout = (): void => {
+export const logout = async (): Promise<void> => {
+  // Importar dinámicamente para evitar dependencias circulares
+  const { logoutUser } = await import('./api-requests');
+  
+  // Intentar revocar el token en el servidor
+  try {
+    await logoutUser();
+  } catch (error) {
+    // Si falla, continuar con el logout local
+    console.error('Error al revocar token en servidor:', error);
+  }
+  
+  // Eliminar token local
   removeToken();
+  
+  // Redirigir al login
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }

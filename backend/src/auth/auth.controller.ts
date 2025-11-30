@@ -5,9 +5,12 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
@@ -106,6 +109,33 @@ export class AuthController {
 
     return {
       message: 'Contraseña actualizada correctamente',
+    };
+  }
+
+  /**
+   * Cierra sesión y revoca el token JWT actual
+   * Invalida el token para que no pueda ser usado nuevamente
+   */
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(@Request() req: any) {
+    // Extraer el token del header Authorization
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return {
+        message: 'Sesión cerrada',
+      };
+    }
+
+    const token = authHeader.substring(7); // Remover "Bearer "
+    const userId = req.user.userId;
+
+    // Revocar el token
+    await this.authService.revokeToken(token, userId);
+
+    return {
+      message: 'Sesión cerrada correctamente',
     };
   }
 }

@@ -186,6 +186,18 @@ export const resetPassword = async (
 };
 
 /**
+ * Cierra sesión y revoca el token en el servidor
+ */
+export const logoutUser = async (): Promise<void> => {
+  try {
+    await apiClient.post('/auth/logout');
+  } catch (error: any) {
+    // Incluso si falla, continuar con el logout local
+    console.error('Error al cerrar sesión en el servidor:', error);
+  }
+};
+
+/**
  * Formatea los errores de la API para mostrar mensajes amigables
  */
 function formatApiError(error: any): ApiError {

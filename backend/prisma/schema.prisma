@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -21,11 +20,25 @@ model User {
 }
 
 model PasswordReset {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  code      String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  email         String   @unique
+  code          String
+  expiresAt     DateTime
+  attempts      Int      @default(1)
+  lastAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   @@map("password_resets")
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime @default(now())
+
+  @@map("revoked_tokens")
+  @@index([userId])
+  @@index([expiresAt])
 }

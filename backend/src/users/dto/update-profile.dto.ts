@@ -5,14 +5,18 @@ import {
   MinLength,
   Matches,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { sanitizeString } from '../../common/utils/sanitize.util';
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
+  @Transform(({ value }) => sanitizeString(value))
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
   name?: string;
 
   @IsOptional()
+  @Transform(({ value }) => sanitizeString(value))
   @IsEmail({}, { message: 'El email debe ser válido' })
   email?: string;
 
