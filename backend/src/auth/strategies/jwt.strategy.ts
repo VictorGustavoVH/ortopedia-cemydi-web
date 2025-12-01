@@ -41,7 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token inválido');
     }
 
-    // Verificar si el token está revocado
+    // Verificar si el token está revocado explícitamente
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
@@ -51,6 +51,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (revoked) {
         throw new UnauthorizedException('Token revocado. Por favor, inicia sesión nuevamente.');
+      }
+    }
+
+    // Verificar si el usuario hizo logout después de que este token fue emitido
+    // Esto invalida TODAS las sesiones activas cuando el usuario hace logout
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { lastLogoutAt: true },
+    });
+
+    if (user?.lastLogoutAt) {
+      // Si el token fue emitido (iat) antes del último logout, está invalidado
+      const tokenIssuedAt = payload.iat ? new Date(payload.iat * 1000) : null;
+      if (tokenIssuedAt && tokenIssuedAt < user.lastLogoutAt) {
+        throw new UnauthorizedException(
+          'Sesión invalidada. Se cerró sesión en otro dispositivo. Por favor, inicia sesión nuevamente.',
+        );
       }
     }
 

@@ -8,13 +8,17 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("client")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          String    @default("client")
+  emailVerified Boolean   @default(false)
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?
+  lastLogoutAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("users")
 }
@@ -22,7 +26,7 @@ model User {
 model PasswordReset {
   id            String   @id @default(uuid())
   email         String   @unique
-  code          String
+  token         String   @unique
   expiresAt     DateTime
   attempts      Int      @default(1)
   lastAttemptAt DateTime @default(now())
@@ -40,5 +44,60 @@ model RevokedToken {
 
   @@map("revoked_tokens")
   @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id            String   @id @default(uuid())
+  email         String
+  attempts      Int      @default(1)
+  lastAttemptAt DateTime @default(now())
+  lockedUntil   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("login_attempts")
+  @@index([email])
+  @@index([lockedUntil])
+}
+
+model PasswordResetAttempt {
+  id            String   @id @default(uuid())
+  ipAddress      String
+  attempts       Int      @default(1)
+  lastAttemptAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("password_reset_attempts")
+  @@index([ipAddress])
+  @@index([lastAttemptAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("refresh_tokens")
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([token])
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("email_verifications")
+  @@index([userId])
+  @@index([token])
   @@index([expiresAt])
 }

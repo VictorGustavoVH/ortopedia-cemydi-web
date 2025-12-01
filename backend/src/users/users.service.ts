@@ -5,6 +5,15 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcrypt';
 
+/**
+ * Número de rounds para bcrypt (cost factor)
+ * 10 rounds = 2^10 = 1024 iteraciones
+ * Balance entre seguridad y rendimiento
+ * IMPORTANTE: bcrypt.hash() genera automáticamente un SALT ÚNICO para cada contraseña
+ * El salt está incluido en el hash resultante en formato: $2a$10$[salt][hash]
+ */
+const BCRYPT_ROUNDS = 10;
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
@@ -19,8 +28,10 @@ export class UsersService {
       throw new ConflictException('El email ya está registrado');
     }
 
-    // Cifrar la contraseña
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    // Cifrar la contraseña con bcrypt
+    // bcrypt.hash() genera automáticamente un SALT ÚNICO para cada contraseña
+    // El salt está incluido en el hash resultante, garantizando que cada contraseña tenga un salt diferente
+    const hashedPassword = await bcrypt.hash(createUserDto.password, BCRYPT_ROUNDS);
 
     // Crear el usuario
     const user = await this.prisma.user.create({
@@ -112,7 +123,8 @@ export class UsersService {
     delete updateData.role;
     
     if (updateUserDto.password) {
-      updateData.password = await bcrypt.hash(updateUserDto.password, 10);
+      // bcrypt genera automáticamente un SALT ÚNICO para cada nueva contraseña
+      updateData.password = await bcrypt.hash(updateUserDto.password, BCRYPT_ROUNDS);
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -237,8 +249,9 @@ export class UsersService {
     }
 
     // Si se proporciona una nueva contraseña, cifrarla
+    // bcrypt genera automáticamente un SALT ÚNICO para cada nueva contraseña
     if (updateProfileDto.password) {
-      updateData.password = await bcrypt.hash(updateProfileDto.password, 10);
+      updateData.password = await bcrypt.hash(updateProfileDto.password, BCRYPT_ROUNDS);
     }
 
     // Actualizar el usuario

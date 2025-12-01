@@ -1,6 +1,6 @@
 # Backend - Ortopedia CEMYDI
 
-
+prueba
 https://modulousuarioproyecto.netlify.app/
 
 ## 🚀 Inicio Rápido
@@ -37,7 +37,3 @@ npm run start:dev
 - `npm run build` - Compilar para producción
 - `npm run start:prod` - Ejecutar en producción
 - `npm run test` - Ejecutar tests
-
-## 📚 Documentación
-
-La API está disponible en `/api` cuando se ejecuta en producción.

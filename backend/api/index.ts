@@ -89,6 +89,55 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
 
+    // Configurar headers de seguridad para prevenir XSS, CSRF y otros ataques
+    app.use((req, res, next) => {
+      // Content Security Policy (CSP) - previene XSS
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.setHeader(
+        'Content-Security-Policy',
+        `default-src 'self'; ` +
+        `script-src 'self' 'unsafe-inline' 'unsafe-eval'; ` +
+        `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; ` +
+        `font-src 'self' https://fonts.gstatic.com; ` +
+        `img-src 'self' data: https:; ` +
+        `connect-src 'self' ${frontendUrl} ${process.env.API_URL || 'http://localhost:4000'} https://*.vercel.app https://*.netlify.app; ` +
+        `frame-ancestors 'none'; ` +
+        `base-uri 'self'; ` +
+        `form-action 'self';`
+      );
+      
+      // Strict-Transport-Security (HSTS) - fuerza HTTPS en producción
+      if (process.env.NODE_ENV === 'production' && req.secure) {
+        res.setHeader(
+          'Strict-Transport-Security',
+          'max-age=31536000; includeSubDomains; preload'
+        );
+      }
+      
+      // X-Content-Type-Options - previene MIME type sniffing
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      
+      // X-Frame-Options - previene clickjacking
+      res.setHeader('X-Frame-Options', 'DENY');
+      
+      // X-XSS-Protection - protección adicional contra XSS
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      
+      // Referrer-Policy - controla qué información del referrer se envía
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      
+      // Permissions-Policy - controla características del navegador
+      res.setHeader(
+        'Permissions-Policy',
+        'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+      );
+      
+      // X-DNS-Prefetch-Control - controla el prefetch de DNS
+      res.setHeader('X-DNS-Prefetch-Control', 'off');
+      
+      next();
+    });
+
     // Aplicar filtro global de excepciones
     app.useGlobalFilters(new AllExceptionsFilter());
 

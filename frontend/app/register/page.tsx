@@ -6,7 +6,7 @@ import Link from "next/link";
 import { UserPlus, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { registerUser } from "@/lib/api-requests";
-import { saveToken, getUserRole } from "@/lib/auth";
+// No necesitamos saveToken ni getUserRole porque el registro no retorna token
 import type { ApiError } from "@/lib/types";
 
 export default function RegisterPage() {
@@ -108,20 +108,13 @@ export default function RegisterPage() {
         password: formData.password,
       });
 
-      // Guardar el token (esto también guarda el rol automáticamente)
-      saveToken(response.access_token);
-
-      toast.success("Cuenta creada correctamente.");
+      // Mostrar mensaje de éxito
+      toast.success(response.message || "Cuenta creada correctamente. Por favor, verifica tu correo electrónico.");
       
-      // Redirigir según el rol del usuario (clientes van a inicio, admins a /users)
-      const userRole = response.user?.role || getUserRole();
+      // Redirigir a la página de login con mensaje
       setTimeout(() => {
-        if (userRole === "admin") {
-          router.push("/users");
-        } else {
-          router.push("/");
-        }
-      }, 1000);
+        router.push(`/login?message=${encodeURIComponent("Por favor, verifica tu correo electrónico para poder iniciar sesión.")}`);
+      }, 2000);
     } catch (err: any) {
       // Manejar errores de la API
       const apiError: ApiError = err;

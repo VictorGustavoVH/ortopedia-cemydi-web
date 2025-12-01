@@ -38,30 +38,19 @@ export default function ForgotPasswordPage() {
 
     try {
       const response = await requestPasswordReset({ email: email.trim() });
-      toast.success("Código de recuperación enviado al correo electrónico.");
+      // Usar el mensaje del backend que es genérico y no revela si el usuario existe
+      const successMessage = response.message || "Si el correo existe en nuestro sistema, recibirás un enlace de recuperación por email.";
+      toast.success(successMessage);
       setSuccess(true);
-      // Opcional: redirigir después de 2 segundos
-      setTimeout(() => {
-        router.push(`/verify-code?email=${encodeURIComponent(email.trim())}`);
-      }, 2000);
+      // El usuario recibirá un enlace por email, no necesita redirigir
     } catch (err: any) {
       const apiError: ApiError = err;
       const errorMessage = Array.isArray(apiError.message)
         ? apiError.message.join(", ")
-        : apiError.message || "No existe una cuenta asociada a este correo.";
+        : apiError.message || "Error al procesar la solicitud. Por favor, intenta nuevamente.";
       
-      // Verificar si el error indica que no existe la cuenta
-      const errorLower = errorMessage.toLowerCase();
-      if (
-        errorLower.includes("no existe") ||
-        errorLower.includes("not found") ||
-        errorLower.includes("no encontrado") ||
-        errorLower.includes("usuario no encontrado")
-      ) {
-        toast.error("No existe una cuenta asociada a este correo.");
-      } else {
-        toast.error(errorMessage);
-      }
+      // Mostrar mensaje de error genérico (nunca revelar si el usuario existe o no)
+      toast.error(errorMessage);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -81,7 +70,7 @@ export default function ForgotPasswordPage() {
             Recuperar Contraseña
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Ingresa tu correo electrónico para recibir un código de recuperación
+            Ingresa tu correo electrónico para recibir un enlace de recuperación
           </p>
         </div>
 
@@ -117,7 +106,7 @@ export default function ForgotPasswordPage() {
               className="w-full flex items-center justify-center gap-2 min-h-[40px] px-4 py-2 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-[#29A2A1] hover:bg-[#20626C] active:bg-[#1C6C53] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#29A2A1]/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <Mail className="w-4 h-4" />
-              {isLoading ? "Enviando..." : success ? "Código enviado ✓" : "Enviar Código"}
+              {isLoading ? "Enviando..." : success ? "Enlace enviado ✓" : "Enviar Enlace"}
             </button>
           </div>
 

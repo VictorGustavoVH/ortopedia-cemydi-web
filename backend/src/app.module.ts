@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { HomeController } from './home/home.controller';
+import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 
 @Module({
   imports: [
@@ -16,4 +17,9 @@ import { HomeController } from './home/home.controller';
   controllers: [HomeController],
   providers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Aplicar middleware CSRF a todas las rutas para proteger contra ataques CSRF
+    consumer.apply(CsrfMiddleware).forRoutes('*');
+  }
+}

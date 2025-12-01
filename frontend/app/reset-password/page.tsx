@@ -5,18 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import toast from "react-hot-toast";
-import { resetPassword } from "@/lib/api-requests";
+import { resetPassword, verifyResetToken } from "@/lib/api-requests";
 import type { ApiError } from "@/lib/types";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [token, setToken] = useState("");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingToken, setIsVerifyingToken] = useState(true);
   const [success, setSuccess] = useState(false);
 
   // Validación de contraseña estricta
@@ -54,17 +55,39 @@ function ResetPasswordForm() {
     return { valid: true };
   };
 
-  // Obtener email y código de los query params si existen
+  // Obtener token de los query params y verificar
   useEffect(() => {
-    const emailParam = searchParams.get("email");
-    const codeParam = searchParams.get("code");
-    if (emailParam) {
-      setEmail(decodeURIComponent(emailParam));
-    }
-    if (codeParam) {
-      setCode(decodeURIComponent(codeParam));
+    const tokenParam = searchParams.get("token");
+    if (tokenParam) {
+      setToken(tokenParam);
+      verifyToken(tokenParam);
+    } else {
+      setError("Token de recuperación no encontrado. Verifica el enlace del correo.");
+      setIsVerifyingToken(false);
     }
   }, [searchParams]);
+
+  const verifyToken = async (tokenValue: string) => {
+    setIsVerifyingToken(true);
+    setError(null);
+    try {
+      const response = await verifyResetToken(tokenValue);
+      if (response.valid && response.email) {
+        setEmail(response.email);
+        setIsVerifyingToken(false);
+      } else {
+        setError(response.message || "Token inválido o expirado");
+        setIsVerifyingToken(false);
+      }
+    } catch (err: any) {
+      const apiError: ApiError = err;
+      const errorMessage = Array.isArray(apiError.message)
+        ? apiError.message.join(", ")
+        : apiError.message || "Token inválido o expirado. Solicita un nuevo enlace.";
+      setError(errorMessage);
+      setIsVerifyingToken(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,14 +96,8 @@ function ResetPasswordForm() {
     setSuccess(false);
 
     // Validaciones
-    if (!email.trim()) {
-      toast.error("El email es obligatorio");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!code.trim() || code.length !== 6) {
-      toast.error("El código debe tener exactamente 6 dígitos");
+    if (!token.trim()) {
+      toast.error("Token de recuperación no válido");
       setIsLoading(false);
       return;
     }
@@ -101,8 +118,7 @@ function ResetPasswordForm() {
 
     try {
       const response = await resetPassword({
-        email: email.trim(),
-        code: code.trim(),
+        token: token.trim(),
         newPassword: newPassword,
       });
 
@@ -125,6 +141,28 @@ function ResetPasswordForm() {
     }
   };
 
+  if (isVerifyingToken) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] bg-gray-50 px-4 py-8">
+        <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-sm">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 rounded-full bg-[#29A2A1]/10">
+                <Lock className="w-8 h-8 text-[#29A2A1] animate-pulse" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-semibold text-black">
+              Verificando enlace...
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Por favor espera mientras verificamos tu enlace de recuperación
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] bg-gray-50 px-4 py-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-sm">
@@ -138,61 +176,24 @@ function ResetPasswordForm() {
             Restablecer Contraseña
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Ingresa tu nueva contraseña
+            {email ? `Ingresa tu nueva contraseña para ${email}` : "Ingresa tu nueva contraseña"}
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-xl bg-[#EE0000]/10 border border-[#EE0000]/20 p-4">
+              <p className="text-sm text-[#EE0000] font-medium">{error}</p>
+            </div>
+          )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-black mb-2"
-            >
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError(null);
-              }}
-              className="block w-full min-h-[40px] px-4 py-2 border border-[#9CA3AF] rounded-xl shadow-sm placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#29A2A1] focus:border-[#20626C] transition-all duration-200 bg-white text-black"
-              placeholder="tu@email.com"
-              disabled={isLoading || success || !!searchParams.get("email")}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="code"
-              className="block text-sm font-medium text-black mb-2"
-            >
-              Código de verificación
-            </label>
-            <input
-              id="code"
-              name="code"
-              type="text"
-              required
-              value={code}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, "");
-                if (value.length <= 6) {
-                  setCode(value);
-                  setError(null);
-                }
-              }}
-              maxLength={6}
-              className="block w-full min-h-[40px] px-4 py-2 border border-[#9CA3AF] rounded-lg shadow-sm placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#29A2A1]/20 focus:border-[#29A2A1] transition-all duration-200 bg-white text-black font-mono text-center"
-              placeholder="000000"
-              disabled={isLoading || success || !!searchParams.get("code")}
-            />
-          </div>
+          {email && (
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+              <p className="text-sm text-gray-600">
+                <strong>Correo:</strong> {email}
+              </p>
+            </div>
+          )}
 
           <div>
             <label

@@ -1,0 +1,121 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    # Ejecutar escaneo semanal cada lunes a las 2 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # Permitir ejecución manual
+
+jobs:
+  audit-backend:
+    name: Security Audit - Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Run npm audit
+        working-directory: ./backend
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+      
+      - name: Generate audit report
+        working-directory: ./backend
+        run: npm audit --json > audit-report-backend.json || true
+      
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-report-backend
+          path: backend/audit-report-backend.json
+          retention-days: 30
+
+  audit-frontend:
+    name: Security Audit - Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+      
+      - name: Generate audit report
+        working-directory: ./frontend
+        run: npm audit --json > audit-report-frontend.json || true
+      
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-report-frontend
+          path: frontend/audit-report-frontend.json
+          retention-days: 30
+
+  summary:
+    name: Security Audit Summary
+    runs-on: ubuntu-latest
+    needs: [audit-backend, audit-frontend]
+    if: always()
+    
+    steps:
+      - name: Download backend audit report
+        uses: actions/download-artifact@v4
+        with:
+          name: audit-report-backend
+          path: ./backend
+      
+      - name: Download frontend audit report
+        uses: actions/download-artifact@v4
+        with:
+          name: audit-report-frontend
+          path: ./frontend
+      
+      - name: Check for vulnerabilities
+        run: |
+          echo "## Security Audit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "./backend/audit-report-backend.json" ]; then
+            BACKEND_VULNS=$(jq -r '.metadata.vulnerabilities.total // 0' ./backend/audit-report-backend.json 2>/dev/null || echo "0")
+            echo "### Backend Vulnerabilities: $BACKEND_VULNS" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "./frontend/audit-report-frontend.json" ]; then
+            FRONTEND_VULNS=$(jq -r '.metadata.vulnerabilities.total // 0' ./frontend/audit-report-frontend.json 2>/dev/null || echo "0")
+            echo "### Frontend Vulnerabilities: $FRONTEND_VULNS" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 Revisa los reportes completos en los artifacts" >> $GITHUB_STEP_SUMMARY
